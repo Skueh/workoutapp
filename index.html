@@ -15,7 +15,7 @@ main{max-width:560px;margin:0 auto;padding:16px 16px 160px}
 h1{font-size:26px;margin:8px 0 14px}
 .card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:12px}
 .row{display:flex;gap:8px;align-items:center}
-input[type=text],select{flex:1;min-width:0;font-size:16px;padding:12px;border-radius:10px;border:1px solid var(--bd);background:var(--bg);color:var(--tx)}
+input[type=text],input[type=password],select{flex:1;min-width:0;font-size:16px;padding:12px;border-radius:10px;border:1px solid var(--bd);background:var(--bg);color:var(--tx)}
 select{width:100%;margin-top:6px}
 input[type=text].mz{flex:1;width:auto;font-size:16px;padding:8px 10px}
 input[type=text].nm{font-weight:700;font-size:17px;padding:8px 10px}
@@ -85,15 +85,6 @@ var t0=0,lt=0,docRef=null,wt=null;try{t0=+localStorage.getItem('treino_t')||0}ca
 function fix(){if(S.last){var lw=getWo(S.last);if(lw&&!lw.done)lw.done=Date.now();S.last=''}S.wo.forEach(function(w){if(w.ids&&!w.slots){w.slots=w.ids.map(function(i){return{o:[i],s:i}});delete w.ids}if(!w.slots)w.slots=[]})}
 function save(){lt=Date.now();try{localStorage.setItem('treino_v1',JSON.stringify(S));localStorage.setItem('treino_t',String(lt))}catch(e){}push()}
 function push(){if(!docRef)return;clearTimeout(wt);wt=setTimeout(function(){docRef.set({json:JSON.stringify(S),t:lt}).catch(function(){})},500)}
-var syncP=(async function(){try{
- var u=await claude.use('user'),db=await claude.use('db');if(!u||!db)return;
- var id=await u.id();if(!id)return;
- var ref=db.doc('data/users/'+id+'/app'),snap=await ref.get(),has=S.ex.length||S.wo.length;
- if(snap.exists){var d=snap.data();
-  if(d&&d.json&&(d.t>=t0||!has)){var r=JSON.parse(d.json);if(r&&Array.isArray(r.ex)&&Array.isArray(r.wo)){S=r;fix();lt=d.t||lt;try{localStorage.setItem('treino_v1',JSON.stringify(S));localStorage.setItem('treino_t',String(lt))}catch(e){}docRef=ref;render();return}}}
- docRef=ref;if(has)push();if(tab==='bk')render();
-}catch(e){}})();
-syncP.then(function(){initRole()});
 var tab='wo',view=null,editId=null,draft=null,expW=true;
 var arm=null;
 function twice(k,m){if(arm===k){arm=null;return true}arm=k;toast(m);setTimeout(function(){if(arm===k)arm=null},5000);return false}
@@ -135,7 +126,7 @@ function saveWo(){
   save();view=editId;render()
 }
 try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist()}catch(e){}
-function bkText(){return JSON.stringify({app:'treino',v:3,theme:S.theme||null,last:S.last||'',name:S.name||'',space:S.space||'main',alt:S.alt||null,planV:S.planV||0,ex:S.ex,wo:S.wo})}
+function bkText(){return JSON.stringify({app:'treino',kind:'backup',v:3,theme:S.theme||null,last:S.last||'',name:S.name||'',space:S.space||'main',alt:S.alt||null,planV:S.planV||0,ex:S.ex,wo:S.wo})}
 function bkCopy(){var t=document.getElementById('bt');t.select();try{navigator.clipboard.writeText(t.value)}catch(e){document.execCommand('copy')}toast('Copiado! Cola nas Notas para guardar.')}
 function bkShare(){if(navigator.share){navigator.share({text:bkText()}).catch(function(){})}else bkCopy()}
 function bkRestore(){var d;try{d=JSON.parse(document.getElementById('br').value.trim())}catch(e){toast('Código inválido. Cola o texto completo.');return}
@@ -167,7 +158,7 @@ function apHtml(){var t=S.theme||{},ac=(t.ac||'').toLowerCase(),pr=PAL.filter(fu
  '<p class="mu">'+(docRef?'✓ A tua cor fica guardada na tua conta e incluída na cópia de segurança.':'A tua cor fica guardada neste telemóvel e incluída na cópia de segurança.')+'</p>'}
 var lastKey=null;
 function animate(){var k=tab+'|'+view+'|'+stab;if(k===lastKey)return;lastKey=k;var a=document.getElementById('app');if(!a||!a.classList)return;a.classList.remove('pg');void a.offsetWidth;a.querySelectorAll('.card').forEach(function(c,i){c.style.setProperty('--i',Math.min(i,9))});a.classList.add('pg')}
-var IS_OWNER=false;
+var IS_OWNER=false;try{IS_OWNER=localStorage.getItem('treino_adm')==='1'}catch(e){}
 function getSp(n){if((S.space||'main')===n)return S;if(!S.alt)S.alt={ex:[],wo:[],last:'',sg:null};return S.alt}
 function swapSpace(){var a=S.alt||{ex:[],wo:[],last:'',sg:null};S.alt={ex:S.ex,wo:S.wo,last:S.last||'',sg:S.sg||null};S.ex=a.ex||[];S.wo=a.wo||[];S.last=a.last||'';if(a.sg)S.sg=a.sg;else delete S.sg;S.space=(S.space==='own')?'main':'own';view=null;draft=null;save();render()}
 function goSpace(n){if((S.space||'main')!==n)swapSpace()}
@@ -183,13 +174,23 @@ function applyPlan(p){var sp=getSp('main');
   if(prev){var ps={};prev.slots.forEach(function(s){ps[s.s]=1});slots.forEach(function(s){for(var k=0;k<s.o.length;k++)if(ps[s.o[k]]){s.s=s.o[k];break}});prev.slots=slots;prev.g=x.grupo||'';nw.push(prev)}
   else nw.push({id:uid(),name:String(x.nome),g:x.grupo||'',slots:slots})});
  sp.wo=nw;delete sp.sg}
-async function sendPlan(){if(!twice('sp','Toca de novo em Enviar para confirmar'))return;
- try{var db=await claude.use('db');if(!db){toast('Sem ligação à conta.');return}
-  var pl=buildPlan(getSp('main'));await db.doc('shared/plan').set({json:JSON.stringify(pl),v:pl.v});toast('Plano enviado ✓ O teu amigo recebe-o ao abrir a app.')}catch(e){toast('Não consegui enviar. Tenta de novo.')}}
-async function checkPlan(){try{var db=await claude.use('db');if(!db)return;var sn=await db.doc('shared/plan').get();if(!sn.exists)return;var d=sn.data();if(!d||!d.v||d.v<=(S.planV||0))return;
-  applyPlan(JSON.parse(d.json));S.planV=d.v;save();render();toast('Plano principal atualizado ✓')}catch(e){}}
-async function initRole(){try{var u=await claude.use('user');if(u)IS_OWNER=!!(await u.isOwner())}catch(e){}
- render();if(!IS_OWNER)checkPlan()}
+var pend=null;
+function stamp(){var d=new Date();return d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2)}
+async function saveFile(name,text){
+ try{var f=new File([text],name,{type:'application/json'});if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:name});return}}catch(e){if(e&&e.name==='AbortError')return}
+ try{var b=new Blob([text],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=name;document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},1500);toast('Ficheiro guardado.')}catch(e){toast('Não consegui criar o ficheiro.')}}
+function pickFile(cb){var i=document.createElement('input');i.type='file';i.style.display='none';document.body.appendChild(i);
+ i.onchange=function(){var f=i.files&&i.files[0];if(!f){i.remove();return}var r=new FileReader();r.onload=function(){cb(String(r.result));i.remove()};r.onerror=function(){toast('Não consegui ler o ficheiro.');i.remove()};r.readAsText(f)};i.click()}
+function doBackup(){saveFile('treino-backup-'+stamp()+'.json',bkText())}
+function doUpdateFile(){saveFile('treino-atualizacao-'+stamp()+'.json',JSON.stringify(Object.assign({app:'treino',kind:'update'},buildPlan(getSp('main')))))}
+function readJson(t){try{return JSON.parse(t)}catch(e){return null}}
+function pickRestore(){pickFile(function(t){var d=readJson(t);if(!d||d.app!=='treino'||!Array.isArray(d.ex)||!Array.isArray(d.wo)){toast('Isto não é um ficheiro de backup.');return}pend={k:'rs',d:d};render()})}
+function pickUpdate(){pickFile(function(t){var d=readJson(t);if(!d||d.app!=='treino'||d.kind!=='update'||!Array.isArray(d.wo)){toast('Isto não é um ficheiro de atualização.');return}pend={k:'up',d:d};render()})}
+function setFrom(d){S={ex:d.ex,wo:d.wo,theme:d.theme||null,last:d.last||'',name:d.name||'',askedName:!!d.name,space:d.space||'main',alt:d.alt||null,planV:d.planV||0};fix()}
+function pendOk(){var p=pend;pend=null;if(!p)return;if(p.k==='rs'){setFrom(p.d);save();toast('Backup restaurado ✓')}else{applyPlan(p.d);S.planV=p.d.v||0;save();toast('Plano atualizado ✓')}go('wo')}
+function pendNo(){pend=null;render()}
+function tryPw(){var i=document.getElementById('pw');if(!i)return;if(i.value.trim()==='admin'){IS_OWNER=true;try{localStorage.setItem('treino_adm','1')}catch(e){}toast('Modo admin ativo ✓');if(S.space==='own')swapSpace();else render()}else{toast('Palavra-passe errada.');i.value=''}}
+function lockAdm(){IS_OWNER=false;try{localStorage.removeItem('treino_adm')}catch(e){}toast('Admin bloqueado.');render()}
 var prevTab='wo';function openBk(){prevTab=tab;go('bk')}
 function gk(w){return(w.g||'').trim().toLowerCase()}
 function wGroups(){var g={},keys=[];S.wo.forEach(function(w){var k=gk(w);if(!g[k]){g[k]={l:(w.g||'').trim(),a:[]};keys.push(k)}g[k].a.push(w)});
@@ -225,15 +226,27 @@ function importWo(){var d;try{d=JSON.parse(document.getElementById('it').value.t
 function usedIds(){var u=[];draft.slots.forEach(function(s){u=u.concat(s.o)});return u}
 function sel(label,fn,excl){return '<select onchange="'+fn+'"><option value="">'+label+'</option>'+S.ex.filter(function(e){return excl.indexOf(e.id)<0}).map(function(e){return '<option value="'+e.id+'">'+esc(e.name)+'</option>'}).join('')+'</select>'}
 
-function render(){applyTheme();
+function render(){applyTheme();if(view&&view!=='edit'&&view!=='imp'&&view.indexOf('exp:')!==0&&!getWo(view))view=null;
   document.getElementById('t1').className=tab==='ex'?'on':'';
   document.getElementById('t2').className=tab==='wo'?'on':'';
   var gb=document.getElementById('gear');if(gb)gb.style.display=(tab==='ex'||(tab==='wo'&&!view))?'':'none';
   var h='';
   if(tab==='bk'&&stab==='ap'){h=apHtml()}else if(tab==='bk'){
-    var ta='width:100%;height:150px;margin-top:8px;font-size:13px;padding:10px;border-radius:10px;border:1px solid var(--bd);background:var(--bg);color:var(--tx)';
-    h='<div class="row"><button class="g" onclick="go(prevTab)">‹ Voltar</button></div><h1>Definições</h1>'+stabs()+'<p class="mu">'+(docRef?'✓ Os teus dados também ficam guardados na tua conta.':'Dados guardados só neste telemóvel.')+'</p><div class="card"><div class="mu">Guarda este texto nas Notas (ou envia-o a ti mesmo). Inclui todos os exercícios, pesos e treinos.</div><textarea id="bt" readonly style="'+ta+'">'+esc(bkText())+'</textarea></div><div class="row"><button class="ib" onclick="bkShare()">'+I.up+' Guardar</button><button class="g ib" onclick="bkCopy()">'+I.copy+' Copiar</button></div>';
-    h+='<div class="card" style="margin-top:14px"><div class="mu">Restaurar a partir de uma cópia (substitui tudo o que está na app)</div><textarea id="br" style="'+ta+'"></textarea></div><button class="ib" onclick="bkRestore()">'+I.down+' Restaurar</button>';
+    var ta='width:100%;height:130px;margin-top:8px;padding:10px;border-radius:10px;border:1px solid var(--bd);background:var(--bg);color:var(--tx)';
+    var bt=function(f,i,l){return '<button class="ib" onclick="'+f+'">'+i+' '+l+'</button>'};
+    var cd=function(t,d,b){return '<div class="card"><div class="name">'+t+'</div><div class="mu" style="margin:6px 0 12px">'+d+'</div>'+b+'</div>'};
+    h='<div class="row"><button class="g" onclick="go(prevTab)">‹ Voltar</button></div><h1>Definições</h1>'+stabs();
+    if(pend){h+='<div class="card"><div class="name">'+(pend.k==='rs'?'Restaurar backup?':'Aplicar atualização?')+'</div><div class="mu" style="margin:6px 0 12px">'+(pend.k==='rs'?'Ficheiro lido: '+pend.d.ex.length+' exercício(s) e '+pend.d.wo.length+' treino(s). Isto substitui tudo o que tens agora na app.':'Atualização com '+pend.d.wo.length+' treino(s). O teu plano principal é atualizado; os teus pesos e reps mantêm-se e o espaço "Meu" não muda.')+'</div><div class="row" style="justify-content:space-between"><button class="g" onclick="pendNo()">Cancelar</button><button onclick="pendOk()">'+(pend.k==='rs'?'Restaurar':'Aplicar')+'</button></div></div>'}
+    h+=cd('Guardar backup','Guarda tudo (exercícios, pesos, treinos e cores) num ficheiro no telemóvel.',bt('doBackup()',I.up,'Guardar ficheiro'));
+    h+=cd('Restaurar backup','Repõe tudo a partir de um ficheiro de backup.',bt('pickRestore()',I.down,'Escolher ficheiro'));
+    h+=cd('Receber atualização','Atualiza o plano principal com um ficheiro de atualização.',bt('pickUpdate()',I.down,'Escolher ficheiro'));
+    if(IS_OWNER){
+      h+=cd('Admin · criar atualização','Cria o ficheiro com o teu plano principal para enviares a quem usa a app (sem pesos).',bt('doUpdateFile()',I.up,'Criar ficheiro de atualização'));
+      h+=cd('Admin · restaurar de texto','Cola aqui o texto de um backup antigo (versão anterior da app).','<textarea id="br" style="'+ta+'"></textarea><div style="margin-top:8px">'+bt('bkRestore()',I.down,'Restaurar texto')+'</div>');
+      h+='<button class="g" onclick="lockAdm()">Bloquear admin</button>';
+    }else{
+      h+='<div class="card"><div class="row"><input type="password" id="pw" placeholder="Palavra-passe" autocomplete="off" onkeydown="if(event.key===\'Enter\')tryPw()"><button class="g" onclick="tryPw()">OK</button></div></div>';
+    }
   }else if(tab==='ex'){
     h='<h1>Exercícios</h1>'+spaceBar()+'<div class="card"><div class="row"><input type="text" id="nn" placeholder="Procurar nome/músculo ou adicionar" oninput="filt()" onkeydown="if(event.key===\'Enter\')addEx()"><button class="sq" aria-label="Adicionar" onclick="addEx()">'+I.plus+'</button></div></div>';
     h+=S.ex.length?exList()+'<p class="mu" id="nores" style="display:none">Nenhum exercício encontrado. Toca em Adicionar para o criar.</p>':'<p class="mu">Ainda não tens exercícios. Escreve o nome acima e adiciona.</p>';
@@ -253,7 +266,7 @@ function render(){applyTheme();
     h='<div class="row"><button class="g" onclick="view=\''+xid+'\';render()">‹ Voltar</button></div><h1>Exportar treino</h1><div class="card"><label class="item"><input type="checkbox" '+(expW?'checked':'')+' onchange="expW=this.checked;render()"><span>Incluir pesos</span></label><div class="mu">Séries e repetições vão sempre incluídas.</div><textarea id="xt" readonly style="width:100%;height:220px;margin-top:10px;font-size:13px;padding:10px;border-radius:10px;border:1px solid var(--bd);background:var(--bg);color:var(--tx)">'+esc(expText(xid))+'</textarea></div><div class="row"><button class="ib" onclick="shareExp()">'+I.up+' Partilhar</button><button class="g ib" onclick="copyExp()">'+I.copy+' Copiar</button></div>';
   }else if(view){
     var w2=getWo(view);
-    h='<div class="row"><button class="g" onclick="view=null;render()">‹ Treinos</button><span style="flex:1"></span><button class="g ic" aria-label="Duplicar" onclick="dupWo(\''+w2.id+'\')">'+I.copy+'</button><button class="g ic" aria-label="Exportar" onclick="view=\'exp:'+w2.id+'\';render()">'+I.up+'</button><button class="g" onclick="editWo(\''+w2.id+'\')">Editar</button><button class="d ic" aria-label="Apagar" onclick="delWo(\''+w2.id+'\')">'+I.trash+'</button></div>';
+    h='<div class="row"><button class="g" onclick="view=null;render()">‹ Treinos</button><span style="flex:1"></span><button class="g ic" aria-label="Duplicar" onclick="dupWo(\''+w2.id+'\')">'+I.copy+'</button><button class="g" onclick="editWo(\''+w2.id+'\')">Editar</button><button class="d ic" aria-label="Apagar" onclick="delWo(\''+w2.id+'\')">'+I.trash+'</button></div>';
     h+='<h1>'+esc(w2.name)+'</h1>'+(w2.done?'<div class="row" style="margin-bottom:8px"><button class="g" style="padding-left:0" onclick="clrDone(\''+w2.id+'\')">Limpar marca</button></div>':'');
     var n=0;
     w2.slots.forEach(function(s,i){var e=getEx(s.s);if(!e)return;n++;
@@ -262,7 +275,7 @@ function render(){applyTheme();
     h+=n?'<p class="mu">As alterações guardam-se automaticamente e valem para todos os treinos com estes exercícios.</p>':'<p class="mu">Este treino não tem exercícios. Toca em Editar.</p>';
   }else{
     h='<h1>Treinos</h1>'+spaceBar()+lastHtml();
-    h+=wList()+'<div style="border-top:1px solid var(--bd);margin:20px 0 16px"></div><div class="row"><button class="ib" onclick="newWo()">'+I.plus+' Novo treino</button><button class="g ib" onclick="view=\'imp\';render()">'+I.down+' Importar</button></div>'+(IS_OWNER?'<div class="row" style="margin-top:8px"><button class="g ib" style="padding-left:0" onclick="sendPlan()">'+I.up+' Enviar plano ao amigo</button></div>':'');
+    h+=wList()+'<div style="border-top:1px solid var(--bd);margin:20px 0 16px"></div><div class="row"><button class="ib" onclick="newWo()">'+I.plus+' Novo treino</button></div>';
   }
   document.getElementById('app').innerHTML=h;animate();
 }
@@ -281,7 +294,6 @@ function welcome(){
  o.onclick=function(){if(!asking)close()};
  later(3000);
  (async function(){var n='';
-  try{var u=await claude.use('user');if(u)n=await u.name()}catch(e){}
   n=String(n||'').trim().split(/\s+/)[0]||'';
   if(done)return;
   if(n){setName(n);later(2400);return}
